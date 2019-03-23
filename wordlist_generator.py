@@ -1,126 +1,144 @@
 #!/usr/bin/env python
 
-import nltk
-from nltk.corpus import brown
-import json, os
+import json, os, re
 
-prondict =  nltk.corpus.cmudict.dict()
+phonetic_words = {}
 
-with open(os.path.expanduser("~/.config/plover/dict.json")) as data_file:
-   stenodict = json.load(data_file)
+with open("cmudict.rep") as cmudict_source:
+    for _ in range(49):
+        next(cmudict_source)
+    for line in cmudict_source:
+        entry = line.split('  ')
+        if (len(entry) > 0):
+            phonetic_words[entry[0]] = [[p for p in s.split()] for s in entry[1].split(" - ")]
+
+with open(os.path.expanduser("~/.local/share//plover/main.json")) as data_file:
+    stenodict = json.load(data_file)
 
 onset = {
-   'B': 'PW',
-   'CH': 'KH',
-   'D': 'TK',
-   'DH': 'TH',
-   'F': 'TP',
-   'G': 'TKPW',
-   'HH': 'H',
-   'JH': 'SKWR',
-   'K': 'K',
-   'L': 'HR',
-   'M': 'PH',
-   'N': 'TPH',
-   'P': 'P',
-   'R': 'R',
-   'S': 'S',
-   'SH': 'SH',
-   'T': 'T',
-   'TH': 'TH',
-   'V': 'SR',
-   'W': 'W',
-   'Y': 'KWR',
-   'Z': 'S*'
-   }
+    'B': 'PW',
+    'CH': 'KH',
+    'D': 'TK',
+    'DH': 'TH',
+    'F': 'TP',
+    'G': 'TKPW',
+    'HH': 'H',
+    'JH': 'SKWR',
+    'K': 'K',
+    'L': 'HR',
+    'M': 'PH',
+    'N': 'TPH',
+    'P': 'P',
+    'R': 'R',
+    'S': 'S',
+    'SH': 'SH',
+    'T': 'T',
+    'TH': 'TH',
+    'V': 'SR',
+    'W': 'W',
+    'Y': 'KWR',
+    'Z': 'S*'
+}
 
 nucleus = {
-   'AA': 'O',
-   'AE': 'A',
-   'AH':  'U',
-   'AO': 'AU',
-   'AW': 'OU',
-   'AY': 'AOEU',
-   'EH': 'E',
-   'ER': 'ER',
-   'EY': 'AEU',
-   'IH': 'EU',
-   'IY': 'AOE',
-   'OW': 'OE',
-   'OY': 'OEU',
-   'UH': 'U',
-   'UW': 'AOU'
-   }
+    'AA': 'O',
+    'AE': 'A',
+    'AH':  'U',
+    'AO': 'AU',
+    'AW': 'OU',
+    'AY': 'AOEU',
+    'EH': 'E',
+    'ER': 'ER',
+    'EY': 'AEU',
+    'IH': 'EU',
+    'IY': 'AOE',
+    'OW': 'OE',
+    'OY': 'OEU',
+    'UH': 'U',
+    'UW': 'AOU'
+}
 
 coda = {
-   'ER': 'R',
-   'B':'B',
-   'CH': 'FP',
-   'D': 'D',
-   'DH': '*T',
-   'F': 'F',
-   'G': 'G',
-   'JH': 'PBLJ',
-   'K': 'BG',
-   'L': 'L',
-   'M': 'PL',
-   'N': 'PB',
-   'NG': 'PBG',
-   'P': 'P',
-   'R': 'R',
-   'S': 'S',
-   'SH': 'RB',
-   'T': 'T',
-   'TH': '*T',
-   'V': 'F',
-   'Z': 'Z'
-   }
-   
+    'ER': 'R',
+    'B':'B',
+    'CH': 'FP',
+    'D': 'D',
+    'DH': '*T',
+    'F': 'F',
+    'G': 'G',
+    'JH': 'PBLJ',
+    'K': 'BG',
+    'L': 'L',
+    'M': 'PL',
+    'N': 'PB',
+    'NG': 'PBG',
+    'P': 'P',
+    'R': 'R',
+    'S': 'S',
+    'SH': 'RB',
+    'T': 'T',
+    'TH': '*T',
+    'V': 'F',
+    'Z': 'Z'
+}
+
 def word_to_steno(word):
-   result = []
-   for pron in prondict[word]:
-      syll = []
-      seg = []
+    outline = []
+    for syllable in phonetic_words[word.upper()]:
+        segs = []
+        seg = []
 
-#      if len(pron) != 3:
-#         syll.append("VOID")
-      
-      for phone in pron:
-         if phone[-1] == '1':
-            syll.append(seg)
-            syll.append([phone])
-            seg = []
-#         elif phone[-1] == '0':
-#            seg += "VOID"
-         else:
-            seg.append(phone)
-      syll.append(seg)
-         
-      entry = ''
-      if len(syll) == 3:
-         for phone in syll[0]:
-            entry += onset.get(phone[:2], '')
-         for phone in syll[1]:
-            entry += nucleus.get(phone[:2], '')
-         for phone in syll[2]:
-            entry += coda.get(phone[:2], '')
-         result.append(entry)
-   return result
+        for phone in syllable:
+            if phone[-1].isnumeric():
+                segs.append(seg)
+                segs.append([phone])
+                seg = []
+            else:
+                seg.append(phone)
+        segs.append(seg)
 
-easy_words = []
+        if len(segs) == 3:
+            stroke = ''
+            for phone in segs[0]:
+                stroke += onset.get(phone[:2], '')
+            for phone in segs[1]:
+                stroke += nucleus.get(phone[:2], '')
+            for phone in segs[2]:
+                stroke += coda.get(phone[:2], '')
+            outline.append(stroke)
+    return '/'.join(outline)
 
-for word in nltk.corpus.cmudict.words():
-   for steno in word_to_steno(word):
-      if stenodict.get(steno) == word:# and 3 <= len(steno) <= 6:
-         print(word)
-         easy_words.append(word)
-         #print(steno)
-         #print(prondict[word])
+generated_dict = {}
+duplicate_regex = re.compile('\(\d\)')
+steno_regex = re.compile('^S?T?K?P?W?H?R?(-|A?O?\*?E?U?)F?R?P?B?L?G?T?S?D?Z?$')
+for word in phonetic_words.keys():
+    outline = word_to_steno(word)
 
-#for bigram in list(nltk.bigrams(brown.words())):
-#   if bigram[0] in easy_words and bigram[1] in easy_words:
-#         print(bigram[0] + ' ' + bigram[1])
+    bad_stroke = False
+    for stroke in outline.split('/'):
+        if steno_regex.match(stroke) is None:
+            bad_stroke = True
+    if bad_stroke:
+        continue
+    
+    if duplicate_regex.match(word[-3:]) is not None:
+        translation = word[:-3].lower()
+    else:
+        translation = word.lower()
 
-#for trigram in list(nltk.trigrams(brown.words())):
-#   if trigram[0] in easy_words and trigram[1] in easy_words and trigram[2] in easy_words:
-#         print(trigram[0] + ' ' + trigram[1] + ' ' + trigram[2])
+    generated_dict[outline] = translation
+    
+with open("generated_dict.json", 'w') as output:
+    output.write(json.dumps(generated_dict, indent=2))
+
+matching_dict = {}
+with open("matching_outlines", 'w') as output:
+    for outline, word in generated_dict.items():
+        if outline in stenodict.keys():
+            print(word.lower(), file=output);
+
+            if word == stenodict[outline].lower():
+                matching_dict[outline] = stenodict[outline]
+
+with open("matching_dict.json", 'w') as output:
+    output.write(json.dumps(matching_dict, indent=2))
