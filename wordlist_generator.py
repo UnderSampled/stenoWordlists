@@ -132,13 +132,10 @@ with open("generated_dict.json", 'w') as output:
     output.write(json.dumps(generated_dict, indent=2))
 
 matching_dict = {}
-with open("matching_outlines", 'w') as output:
-    for outline, word in generated_dict.items():
-        if outline in stenodict.keys():
-            print(word.lower(), file=output);
-
-            if word == stenodict[outline].lower():
-                matching_dict[outline] = stenodict[outline]
+for outline, word in generated_dict.items():
+   if outline in stenodict.keys():
+      if word == stenodict[outline].lower():
+         matching_dict[outline] = stenodict[outline]
 
 with open("matching_dict.json", 'w') as output:
     output.write(json.dumps(matching_dict, indent=2))
